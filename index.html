@@ -1,0 +1,1354 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<title>Torre de Control</title>
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@600;700;800&family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#F4F6F5; --surface:#FFFFFF; --surface-alt:#E9EEEC; --border:#D6DEDB;
+    --text:#16211F; --text-muted:#57655F;
+    --accent:#0D5C56; --accent-soft:#DCEEEC; --accent-strong:#093F3B; --accent-contrast:#FFFFFF;
+    --good:#2E7D46; --good-bg:#E3F3E6; --good-border:#BEE0C4;
+    --warn:#9A6216; --warn-bg:#FBEFDC; --warn-border:#EFD4A0;
+    --crit:#B3392E; --crit-bg:#FBE4E1; --crit-border:#F0B9B2;
+    --done:#57655F; --done-bg:#E9EEEC; --done-border:#D6DEDB;
+    --shadow: 0 1px 2px rgba(15,30,27,0.06), 0 6px 20px rgba(15,30,27,0.06);
+    --radius: 10px;
+  }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      --bg:#0D1615; --surface:#142220; --surface-alt:#1B2C29; --border:#294038;
+      --text:#E8F0ED; --text-muted:#98A9A3;
+      --accent:#48C6B7; --accent-soft:#173330; --accent-strong:#8BEADB; --accent-contrast:#08201D;
+      --good:#66D68B; --good-bg:#152C1D; --good-border:#2B5138;
+      --warn:#E7B24C; --warn-bg:#332711; --warn-border:#5A4620;
+      --crit:#F0766A; --crit-bg:#331A18; --crit-border:#5C2E29;
+      --done:#8AA39B; --done-bg:#1B2C29; --done-border:#294038;
+      --shadow: 0 1px 2px rgba(0,0,0,0.3), 0 8px 24px rgba(0,0,0,0.35);
+    }
+  }
+  :root[data-theme="dark"]{
+    --bg:#0D1615; --surface:#142220; --surface-alt:#1B2C29; --border:#294038;
+    --text:#E8F0ED; --text-muted:#98A9A3;
+    --accent:#48C6B7; --accent-soft:#173330; --accent-strong:#8BEADB; --accent-contrast:#08201D;
+    --good:#66D68B; --good-bg:#152C1D; --good-border:#2B5138;
+    --warn:#E7B24C; --warn-bg:#332711; --warn-border:#5A4620;
+    --crit:#F0766A; --crit-bg:#331A18; --crit-border:#5C2E29;
+    --done:#8AA39B; --done-bg:#1B2C29; --done-border:#294038;
+    --shadow: 0 1px 2px rgba(0,0,0,0.3), 0 8px 24px rgba(0,0,0,0.35);
+  }
+
+  *{ box-sizing:border-box; }
+  html,body{ margin:0; padding:0; }
+  body{
+    background:var(--bg); color:var(--text);
+    font-family:"IBM Plex Sans", system-ui, sans-serif;
+    font-size:15px; line-height:1.5;
+    -webkit-font-smoothing:antialiased;
+  }
+  .mono{ font-family:"IBM Plex Mono", ui-monospace, monospace; font-variant-numeric: tabular-nums; }
+  h1,h2,h3{ font-family:"Big Shoulders Display", system-ui, sans-serif; text-wrap:balance; margin:0; }
+  ::selection{ background:var(--accent-soft); }
+  button{ font-family:inherit; }
+  a{ color:var(--accent); }
+
+  .wrap{ max-width:1180px; margin:0 auto; padding:28px 24px 72px; }
+
+  /* ---- Top bar (sesión) ---- */
+  .topbar{ background:var(--surface); border-bottom:1px solid var(--border); }
+  .topbar-inner{ max-width:1180px; margin:0 auto; padding:10px 24px; display:flex; align-items:center; justify-content:flex-end; gap:14px; }
+  .topbar-user{ font-size:12.5px; color:var(--text-muted); margin-right:auto; }
+  .topbar-status{ font-size:12px; color:var(--text-muted); font-weight:600; }
+
+  /* ---- Header ---- */
+  .eyebrow{
+    font-family:"IBM Plex Mono", monospace; font-size:12px; letter-spacing:.14em;
+    text-transform:uppercase; color:var(--accent); font-weight:600;
+  }
+  .title-row{ display:flex; align-items:flex-end; justify-content:space-between; gap:16px; margin-top:6px; flex-wrap:wrap; }
+  h1{ font-size:44px; font-weight:800; letter-spacing:-0.01em; }
+  .subtitle{ color:var(--text-muted); font-size:14px; margin-top:6px; }
+  .updated{ text-align:right; font-size:12.5px; color:var(--text-muted); }
+  .updated .dot{ display:inline-block; width:7px; height:7px; border-radius:50%; background:var(--good); margin-right:6px; box-shadow:0 0 0 3px var(--good-bg); }
+
+  .readonly-banner{
+    margin:16px 0 0; padding:10px 14px; border-radius:var(--radius);
+    background:var(--warn-bg); border:1px solid var(--warn-border); color:var(--warn);
+    font-size:13.5px; font-weight:500;
+  }
+
+  /* ---- KPI strip ---- */
+  .kpis{ display:grid; grid-template-columns:repeat(4,1fr); gap:12px; margin:24px 0 8px; }
+  .kpi{
+    background:var(--surface); border:1px solid var(--border); border-radius:var(--radius);
+    padding:16px 18px; box-shadow:var(--shadow); border-left:4px solid var(--border);
+  }
+  .kpi.ok{ border-left-color:var(--good); } .kpi.warn{ border-left-color:var(--warn); } .kpi.crit{ border-left-color:var(--crit); }
+  .kpi .n{ font-family:"Big Shoulders Display"; font-size:36px; font-weight:800; line-height:1; }
+  .kpi .l{ color:var(--text-muted); font-size:12.5px; margin-top:4px; text-transform:uppercase; letter-spacing:.05em; }
+
+  /* ---- Tabs ---- */
+  .tabs{ display:flex; gap:4px; margin-top:28px; border-bottom:1px solid var(--border); }
+  .tab{
+    appearance:none; border:none; background:transparent; cursor:pointer;
+    padding:10px 16px; font-size:14px; font-weight:600; color:var(--text-muted);
+    border-bottom:2px solid transparent; margin-bottom:-1px;
+  }
+  .tab.active{ color:var(--accent); border-bottom-color:var(--accent); }
+  .tab .badge{
+    display:inline-block; margin-left:6px; padding:1px 6px; border-radius:99px;
+    background:var(--crit-bg); color:var(--crit); font-size:11px; font-weight:700;
+  }
+
+  .panel{ display:none; padding-top:20px; }
+  .panel.active{ display:block; }
+
+  .toolbar{ display:flex; justify-content:space-between; align-items:center; gap:12px; margin-bottom:16px; flex-wrap:wrap; }
+  .toolbar .right{ display:flex; gap:10px; align-items:center; }
+
+  .btn{
+    appearance:none; border:1px solid var(--border); background:var(--surface); color:var(--text);
+    padding:8px 14px; border-radius:8px; font-size:13.5px; font-weight:600; cursor:pointer;
+    display:inline-flex; align-items:center; gap:6px;
+  }
+  .btn:hover{ border-color:var(--accent); }
+  .btn.primary{ background:var(--accent); border-color:var(--accent); color:var(--accent-contrast); }
+  .btn.primary:hover{ background:var(--accent-strong); border-color:var(--accent-strong); }
+  .btn.ghost{ background:transparent; border-color:transparent; color:var(--text-muted); padding:6px 8px; }
+  .btn.ghost:hover{ color:var(--crit); }
+  .btn.small{ padding:5px 10px; font-size:12.5px; }
+  .btn.icon{ padding:5px 7px; }
+  .btn.icon svg{ width:14px; height:14px; display:block; }
+  .btn[disabled]{ opacity:.45; cursor:not-allowed; }
+  .toggle{ display:flex; align-items:center; gap:7px; font-size:13px; color:var(--text-muted); cursor:pointer; user-select:none; }
+
+  /* ---- Compra cards ---- */
+  .compras-list{ display:flex; flex-direction:column; gap:12px; }
+  .card{
+    background:var(--surface); border:1px solid var(--border); border-radius:var(--radius);
+    padding:16px 18px; box-shadow:var(--shadow);
+  }
+  .card.completada{ opacity:.6; }
+  .card-top{ display:flex; justify-content:space-between; align-items:flex-start; gap:12px; flex-wrap:wrap; }
+  .card-id{ font-size:16px; font-weight:700; }
+  .card-meta{ color:var(--text-muted); font-size:13px; margin-top:2px; }
+  .card-meta b{ color:var(--text); font-weight:600; }
+
+  .chip{
+    display:inline-flex; align-items:center; gap:5px; padding:3px 10px; border-radius:99px;
+    font-size:11.5px; font-weight:700; text-transform:uppercase; letter-spacing:.03em; white-space:nowrap;
+    border:1px solid transparent;
+  }
+  .chip::before{ content:""; width:6px; height:6px; border-radius:50%; background:currentColor; }
+  .chip.ok{ background:var(--good-bg); color:var(--good); border-color:var(--good-border); }
+  .chip.warn{ background:var(--warn-bg); color:var(--warn); border-color:var(--warn-border); }
+  .chip.crit{ background:var(--crit-bg); color:var(--crit); border-color:var(--crit-border); }
+  .chip.done{ background:var(--done-bg); color:var(--done); border-color:var(--done-border); }
+
+  .pipeline{ display:flex; gap:3px; margin:14px 0 10px; }
+  .seg{ position:relative; flex:1; height:9px; border-radius:4px; background:var(--surface-alt); overflow:hidden; border:1px solid var(--border); }
+  .seg .fill{ position:absolute; inset:0; width:0%; background:var(--accent); }
+  .seg.past .fill{ width:100%; background:var(--done); opacity:.55; }
+  .seg.current.ok .fill{ background:var(--good); }
+  .seg.current.warn .fill{ background:var(--warn); }
+  .seg.current.crit .fill{ background:var(--crit); }
+
+  .card-stats{ display:flex; justify-content:space-between; align-items:center; gap:12px; flex-wrap:wrap; font-size:13px; color:var(--text-muted); }
+  .card-stats .stage-name{ color:var(--text); font-weight:600; }
+  .card-actions{ display:flex; gap:8px; margin-top:12px; flex-wrap:wrap; }
+  .nota{ margin-top:8px; font-size:12.5px; color:var(--text-muted); font-style:italic; }
+
+  .empty{ text-align:center; padding:40px 20px; color:var(--text-muted); font-size:14px; }
+
+  /* ---- Tables ---- */
+  .table-wrap{ overflow-x:auto; border:1px solid var(--border); border-radius:var(--radius); background:var(--surface); box-shadow:var(--shadow); }
+  table{ width:100%; border-collapse:collapse; min-width:640px; }
+  th,td{ padding:11px 14px; text-align:left; font-size:13.5px; border-bottom:1px solid var(--border); }
+  th{ font-size:11.5px; text-transform:uppercase; letter-spacing:.05em; color:var(--text-muted); font-weight:600; background:var(--surface-alt); }
+  tbody tr:last-child td{ border-bottom:none; }
+  td.num{ font-family:"IBM Plex Mono"; font-variant-numeric:tabular-nums; }
+  .row-actions{ display:flex; gap:4px; }
+
+  .etapas-list{ display:flex; flex-direction:column; gap:8px; margin-bottom:16px; }
+  .etapa-row{ display:flex; align-items:center; gap:10px; background:var(--surface); border:1px solid var(--border); border-radius:8px; padding:8px 12px; }
+  .etapa-row .idx{ font-family:"IBM Plex Mono"; color:var(--text-muted); font-size:12px; width:18px; }
+  .etapa-row input[type=text]{ flex:1; }
+  .etapa-row input[type=number]{ width:90px; }
+  .etapa-row .unit{ color:var(--text-muted); font-size:12.5px; }
+  .help{ color:var(--text-muted); font-size:12.5px; margin-top:6px; }
+
+  input[type=text], input[type=number], input[type=date], select, textarea{
+    background:var(--surface); border:1px solid var(--border); border-radius:7px; color:var(--text);
+    padding:7px 10px; font-size:13.5px; font-family:inherit;
+  }
+  textarea{ resize:vertical; min-height:56px; width:100%; }
+  label{ font-size:12.5px; color:var(--text-muted); font-weight:600; display:block; margin-bottom:4px; }
+  .field{ margin-bottom:12px; }
+  .grid2{ display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+
+  dialog{
+    border:1px solid var(--border); border-radius:14px; padding:0; background:var(--surface); color:var(--text);
+    box-shadow:0 20px 60px rgba(0,0,0,.25); width:min(480px,92vw);
+  }
+  dialog::backdrop{ background:rgba(10,16,15,.5); }
+  .dlg-head{ padding:16px 20px; border-bottom:1px solid var(--border); font-family:"Big Shoulders Display"; font-size:22px; font-weight:700; }
+  .dlg-body{ padding:18px 20px; }
+  .dlg-foot{ padding:14px 20px; border-top:1px solid var(--border); display:flex; justify-content:flex-end; gap:8px; }
+
+  footer.note{ margin-top:36px; color:var(--text-muted); font-size:12px; text-align:center; }
+
+  @media (max-width:760px){
+    .kpis{ grid-template-columns:repeat(2,1fr); }
+    h1{ font-size:32px; }
+    .updated{ text-align:left; }
+    .grid2{ grid-template-columns:1fr; }
+  }
+  @media (prefers-reduced-motion:reduce){ *{ transition:none !important; animation:none !important; } }
+</style>
+<script src="https://accounts.google.com/gsi/client" async defer></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+</head>
+<body>
+<div id="app"><div class="wrap"><p class="empty">Cargando torre de control…</p></div></div>
+
+<dialog id="dlg-compra">
+  <form method="dialog" id="form-compra">
+    <div class="dlg-head" id="dlg-compra-title">Nueva compra</div>
+    <div class="dlg-body">
+      <div class="field"><label>Producto</label><select id="f-producto-select"></select></div>
+      <div class="field" id="f-producto-otro-wrap"><label>Nombre del producto</label><input type="text" id="f-producto-otro" placeholder="Ej: Correas de repuesto tornamesa"></div>
+      <div class="grid2">
+        <div class="field"><label>Proveedor</label><input type="text" id="f-proveedor" required></div>
+        <div class="field"><label>Cantidad</label><input type="number" id="f-cantidad" min="0" required></div>
+      </div>
+      <div class="grid2">
+        <div class="field"><label>Fecha de orden</label><input type="date" id="f-fechaorden" required></div>
+        <div class="field"><label>Etapa actual</label><select id="f-etapa"></select></div>
+      </div>
+      <div class="field"><label>Inicio de la etapa actual</label><input type="date" id="f-fechaetapa" required></div>
+      <div class="field"><label>Notas (opcional)</label><textarea id="f-nota"></textarea></div>
+    </div>
+    <div class="dlg-foot">
+      <button type="button" class="btn" data-close-dialog="dlg-compra">Cancelar</button>
+      <button type="submit" class="btn primary" id="btn-save-compra">Guardar compra</button>
+    </div>
+  </form>
+</dialog>
+
+<dialog id="dlg-producto">
+  <form method="dialog" id="form-producto">
+    <div class="dlg-head" id="dlg-producto-title">Nuevo producto</div>
+    <div class="dlg-body">
+      <div class="field"><label>Producto</label><input type="text" id="p-nombre" required></div>
+      <div class="grid2">
+        <div class="field"><label>Stock en Casa Matriz + Bodega Web (unid.)</label><input type="number" id="p-stock-cm" min="0" step="1" required></div>
+        <div class="field"><label>Stock en Locales / sucursales (unid.)</label><input type="number" id="p-stock-loc" min="0" step="1" required></div>
+      </div>
+      <div class="grid2">
+        <div class="field"><label>Consumo diario (unid./día)</label><input type="number" id="p-consumo" min="0" step="any" required></div>
+        <div class="field"><label>Lead time de reposición (días)</label><input type="number" id="p-leadtime" min="0" step="1" required></div>
+      </div>
+      <div class="field"><label>Stock de seguridad (días)</label><input type="number" id="p-seguridad" min="0" step="1" required></div>
+      <p class="help">Locales = suma de todas las sucursales Plaza Música (tiendas). Casa Matriz + Bodega Web van juntos. Lead time = días desde que se emite la orden hasta que el producto está disponible en bodega (referencia: suma de las etapas configuradas).</p>
+    </div>
+    <div class="dlg-foot">
+      <button type="button" class="btn" data-close-dialog="dlg-producto">Cancelar</button>
+      <button type="submit" class="btn primary" id="btn-save-producto">Guardar producto</button>
+    </div>
+  </form>
+</dialog>
+
+<dialog id="dlg-lote">
+  <form method="dialog" id="form-lote">
+    <div class="dlg-head">Actualizar stock y consumo en lote</div>
+    <div class="dlg-body">
+      <p class="help">Pega una línea por producto: <b>nombre exacto</b> (tal como aparece en la tabla), stock en Casa Matriz + Bodega Web, stock en Locales (suma de todas las sucursales Plaza Música) y consumo diario, separados por coma o tabulación (por ejemplo, copiando columnas desde Excel). Los productos que no reconozca no se van a modificar.</p>
+      <div class="field">
+        <label>Datos (uno por línea)</label>
+        <textarea id="lote-texto" rows="10" placeholder="Reproductor CD Crosley Cruiser, 20, 79, 0.42&#10;Reproductor CD Crosley Voyager, 10, 30, 0.294"></textarea>
+      </div>
+      <p class="help" id="lote-status"></p>
+    </div>
+    <div class="dlg-foot">
+      <button type="button" class="btn" data-close-dialog="dlg-lote">Cerrar</button>
+      <button type="button" class="btn primary" id="btn-aplicar-lote">Aplicar</button>
+    </div>
+  </form>
+</dialog>
+
+<dialog id="dlg-excel" style="width:min(680px,94vw)">
+  <form method="dialog" id="form-excel">
+    <div class="dlg-head">Cargar ventas y stock desde Excel</div>
+    <div class="dlg-body">
+      <p class="help">Sube el Excel de ventas (detalle de movimientos de Bsale) y el de stock (todas las sucursales). La Torre de Control cruza ambos con la lista de productos en seguimiento y calcula el stock (Casa Matriz + Bodega Web juntos, por un lado; Locales/sucursales Plaza Música por otro, según la columna "Sucursal" del archivo) y el consumo diario de cada uno — no hace falta tocar cada línea.</p>
+      <div class="field"><label>Excel de ventas</label><input type="file" id="excel-ventas" accept=".xlsx,.xls"></div>
+      <div class="field"><label>Excel de stock (todas las sucursales)</label><input type="file" id="excel-stock" accept=".xlsx,.xls"></div>
+      <div class="grid2">
+        <div class="field"><label>Ventas desde</label><input type="date" id="excel-desde"></div>
+        <div class="field"><label>Ventas hasta</label><input type="date" id="excel-hasta"></div>
+      </div>
+      <p class="help">El consumo diario se calcula como unidades vendidas (netas de devoluciones) en ese rango de fechas, dividido por los días del rango.</p>
+      <div style="display:flex; gap:8px; margin:6px 0 14px;">
+        <button type="button" class="btn primary" id="btn-procesar-excel">Procesar archivos</button>
+      </div>
+      <p class="help" id="excel-status"></p>
+      <div id="excel-preview"></div>
+    </div>
+    <div class="dlg-foot">
+      <button type="button" class="btn" data-close-dialog="dlg-excel">Cerrar</button>
+      <button type="button" class="btn primary" id="btn-aplicar-excel" disabled>Aplicar cambios</button>
+    </div>
+  </form>
+</dialog>
+
+<script id="app-logic">
+(function(){
+  'use strict';
+
+  // ================================================================
+  //  CONFIGURACIÓN — edita estas dos líneas antes de publicar
+  // ================================================================
+  var CLIENT_ID = '850116430804-7ao85s5jm933c178shjld8icq11ifo34.apps.googleusercontent.com';
+  var SPREADSHEET_ID = '1ljGjEy6lcecuKiLZYzEIKQNeu5kLBM_5YpBXjb1vA-I';
+  // ================================================================
+
+  var DAY = 86400000;
+
+  function todayISO(){ return new Date().toISOString().slice(0,10); }
+  function daysBetween(a,b){ return Math.floor((new Date(b+'T00:00:00') - new Date(a+'T00:00:00'))/DAY); }
+  function addDays(iso,n){ var d=new Date(iso+'T00:00:00'); d.setDate(d.getDate()+n); return d.toISOString().slice(0,10); }
+  function fmtDate(iso){ if(!iso) return '—'; var d=new Date(iso+'T00:00:00'); return d.toLocaleDateString('es-CL',{day:'2-digit',month:'short',year:'numeric'}); }
+  function fmtDateCorta(iso){ if(!iso) return '—'; var d=new Date(iso+'T00:00:00'); var dd=String(d.getDate()).padStart(2,'0'); var mm=String(d.getMonth()+1).padStart(2,'0'); var yy=String(d.getFullYear()).slice(-2); return dd+'-'+mm+'-'+yy; }
+  function fmtDateTime(iso){ if(!iso) return '—'; var d=new Date(iso); return d.toLocaleString('es-CL',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'}); }
+  function uid(p){ return p+Math.random().toString(36).slice(2,9); }
+  function esc(s){ return String(s==null?'':s).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];}); }
+  function clamp(n,a,b){ return Math.max(a,Math.min(b,n)); }
+
+  // ---- Estado de la app ----
+  var STATE = null;              // { productos, compras, estados, meta }
+  var isReadOnly = false;        // true si la cuenta sólo puede leer la Sheet
+  var loadError = null;          // null | 'no_access' | 'error'
+  var syncStatus = 'idle';       // idle | saving | saved | error
+  var userEmail = null;
+  var lastKnownUpdated = null;   // meta.updated de la última versión conocida de la Sheet
+  var activeTab = 'compras';
+  var showCompletadas = false;
+
+  // ---- Autenticación (Google Identity Services) ----
+  var tokenClient = null;
+  var ACCESS_TOKEN = null;
+  var pendingTokenResolve = null, pendingTokenReject = null;
+
+  function totalDiasEstandar(){ return STATE.estados.reduce(function(s,e){return s+Number(e.dias||0);},0); }
+
+  function calcCompra(c){
+    var idx = clamp(c.estadoIdx,0,STATE.estados.length-1);
+    var estado = STATE.estados[idx];
+    var terminal = idx === STATE.estados.length-1;
+    var dias = terminal ? 0 : daysBetween(c.fechaInicioEstado, todayISO());
+    var limite = Number(estado.dias||0);
+    var ratio = (!terminal && limite>0) ? dias/limite : 0;
+    var nivel = 'ok';
+    if (terminal || c.completada) nivel = 'done';
+    else if (ratio >= 1) nivel = 'crit';
+    else if (ratio >= 0.7) nivel = 'warn';
+    var eta = addDays(c.fechaOrden, totalDiasEstandar());
+    return { estado:estado, idx:idx, terminal:terminal, dias:dias, limite:limite, ratio:ratio, nivel:nivel, eta:eta };
+  }
+
+  function unidadesEnTransito(productoId){
+    if (!productoId) return 0;
+    return STATE.compras.filter(function(c){ return c.productoId===productoId && !c.completada; })
+      .reduce(function(s,c){ return s + Number(c.cantidad||0); }, 0);
+  }
+
+  function ultimaCompra(productoId){
+    if (!productoId) return null;
+    var list = STATE.compras.filter(function(c){ return c.productoId===productoId; });
+    if (!list.length) return null;
+    list = list.slice().sort(function(a,b){ return new Date(b.fechaOrden) - new Date(a.fechaOrden); });
+    return list[0];
+  }
+
+  function calcProducto(p){
+    var stockTotal = Number(p.stockCasaMatriz||0) + Number(p.stockLocales||0);
+    var consumo = Number(p.consumoDiario||0);
+    var cobertura = consumo>0 ? stockTotal/consumo : Infinity;
+    var puntoDias = Number(p.leadTimeDias||0) + Number(p.stockSeguridadDias||0);
+    var nivel = 'ok';
+    if (cobertura <= Number(p.leadTimeDias||0)) nivel='crit';
+    else if (cobertura <= puntoDias) nivel='warn';
+    var puntoUnid = Math.round(consumo*puntoDias);
+    var transito = unidadesEnTransito(p.id);
+    var ultima = ultimaCompra(p.id);
+    var compraSugerida = Math.max(0, Math.round(puntoUnid - stockTotal - transito));
+    return { stockTotal:stockTotal, cobertura:cobertura, puntoDias:puntoDias, puntoUnid:puntoUnid, compraSugerida:compraSugerida, nivel:nivel, transito:transito, ultima:ultima };
+  }
+
+  var NIVEL_LABEL = { ok:'En plazo', warn:'Por vencer', crit:'Atrasado', done:'Recibido' };
+  var NIVEL_LABEL_STOCK = { ok:'Saludable', warn:'Pedir pronto', crit:'Crítico' };
+  var ICON_EDITAR = '<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M13.5 3.5l3 3L6 17l-4 1 1-4L13.5 3.5z"/></svg>';
+  var ICON_ELIMINAR = '<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h12M8 6V4.5A1.5 1.5 0 0 1 9.5 3h1A1.5 1.5 0 0 1 12 4.5V6M6 6l.6 10.2A1.5 1.5 0 0 0 8.1 17.6h3.8a1.5 1.5 0 0 0 1.5-1.4L14 6"/></svg>';
+
+  // ================================================================
+  //  RENDER
+  // ================================================================
+
+  function render(){
+    var app = document.getElementById('app');
+    if (!CLIENT_ID || CLIENT_ID.indexOf('PEGA_AQUI') === 0){
+      app.innerHTML = templateConfigFaltante();
+      return;
+    }
+    if (!ACCESS_TOKEN){
+      app.innerHTML = templateLogin();
+      bindLoginEvents();
+      return;
+    }
+    if (loadError){
+      app.innerHTML = templateTopbar() + templateError(loadError);
+      bindTopbarEvents();
+      bindErrorEvents();
+      return;
+    }
+    if (!STATE){
+      app.innerHTML = templateTopbar() + '<div class="wrap"><p class="empty">Cargando datos desde Google Sheets…</p></div>';
+      bindTopbarEvents();
+      return;
+    }
+    app.innerHTML = templateTopbar() + template();
+    bindTopbarEvents();
+    bindEvents();
+  }
+
+  function renderTopbarOnly(){
+    var el = document.querySelector('.topbar');
+    if (!el) { render(); return; }
+    el.outerHTML = templateTopbar();
+    bindTopbarEvents();
+  }
+
+  function templateConfigFaltante(){
+    return '<div class="wrap" style="max-width:480px;text-align:center;padding-top:110px;">'+
+      '<div class="eyebrow">Torre de Control</div>'+
+      '<h1 style="font-size:26px; margin-top:10px;">Falta configurar</h1>'+
+      '<p class="subtitle" style="margin-top:10px;">Todavía no se configuró el Client ID de Google en este archivo. Sigue la guía de instalación y pega tu Client ID en la constante <b>CLIENT_ID</b>, cerca del inicio del bloque de código (busca "CONFIGURACIÓN" en index.html).</p>'+
+    '</div>';
+  }
+
+  function templateLogin(){
+    return '<div class="wrap" style="max-width:420px; text-align:center; padding-top:110px;">'+
+      '<div class="eyebrow">Torre de Control</div>'+
+      '<h1 style="font-size:32px; margin-top:8px;">Iniciar sesión</h1>'+
+      '<p class="subtitle" style="margin-top:10px;">Ingresa con la cuenta de Google que fue autorizada para editar la Torre de Control.</p>'+
+      '<button type="button" class="btn primary" id="btn-google-signin" style="margin-top:24px; padding:12px 22px; font-size:14px;">Conectar con Google</button>'+
+    '</div>';
+  }
+  function bindLoginEvents(){
+    var b = document.getElementById('btn-google-signin');
+    if (b) b.addEventListener('click', signIn);
+  }
+
+  function templateError(kind){
+    var msg = kind==='no_access'
+      ? 'Tu cuenta ('+esc(userEmail||'')+') no tiene acceso a la planilla de datos. Pide que te agreguen como <b>Editor</b> en la Google Sheet de la Torre de Control.'
+      : 'Ocurrió un problema cargando los datos desde Google Sheets. Intenta de nuevo en unos segundos.';
+    return '<div class="wrap" style="max-width:460px; text-align:center; padding-top:110px;">'+
+      '<div class="eyebrow">Torre de Control</div>'+
+      '<h1 style="font-size:28px; margin-top:8px;">No se pudo cargar</h1>'+
+      '<p class="subtitle" style="margin-top:10px;">'+msg+'</p>'+
+      '<div style="margin-top:20px; display:flex; gap:10px; justify-content:center;">'+
+        '<button type="button" class="btn" id="btn-retry">Reintentar</button>'+
+      '</div>'+
+    '</div>';
+  }
+  function bindErrorEvents(){
+    var r = document.getElementById('btn-retry');
+    if (r) r.addEventListener('click', function(){ loadError=null; render(); onSignedIn(); });
+  }
+
+  function templateTopbar(){
+    var statusTxt = { idle:'', saving:'Guardando…', saved:'Guardado ✓', error:'Error al guardar', conflict:'Actualizando…' }[syncStatus] || '';
+    return '<div class="topbar"><div class="topbar-inner">'+
+      '<span class="topbar-user">'+esc(userEmail||'')+'</span>'+
+      '<span class="topbar-status">'+esc(statusTxt)+'</span>'+
+      '<button type="button" class="btn ghost small" id="btn-signout">Cerrar sesión</button>'+
+    '</div></div>';
+  }
+  function bindTopbarEvents(){
+    var b = document.getElementById('btn-signout');
+    if (b) b.addEventListener('click', signOut);
+  }
+
+  function template(){
+    var activos = STATE.compras.filter(function(c){ return !c.completada; });
+    var alertaCount = activos.filter(function(c){ return calcCompra(c).nivel==='warn'; }).length;
+    var critCount = activos.filter(function(c){ return calcCompra(c).nivel==='crit'; }).length;
+    var stockCrit = STATE.productos.filter(function(p){ return calcProducto(p).nivel==='crit'; }).length;
+
+    return ''+
+    '<div class="wrap">'+
+      '<div class="eyebrow">Compras internacionales · en vivo</div>'+
+      '<div class="title-row">'+
+        '<div><h1>Torre de Control</h1><div class="subtitle">Estado de cada compra en tránsito y stock crítico de reposición</div></div>'+
+        '<div class="updated"><span class="dot"></span>Actualizado '+esc(fmtDateTime(STATE.meta.updated))+'</div>'+
+      '</div>'+
+      (isReadOnly ? '<div class="readonly-banner">Vista de solo lectura — tu cuenta de Google no tiene permiso de edición en la Google Sheet. Pide acceso de Editor a quien administra la planilla.</div>' : '')+
+      '<div class="kpis">'+
+        '<div class="kpi '+(critCount>0?'crit':'ok')+'"><div class="n mono">'+activos.length+'</div><div class="l">Compras activas</div></div>'+
+        '<div class="kpi '+(alertaCount>0?'warn':'ok')+'"><div class="n mono">'+alertaCount+'</div><div class="l">Por vencer</div></div>'+
+        '<div class="kpi '+(critCount>0?'crit':'ok')+'"><div class="n mono">'+critCount+'</div><div class="l">Compras atrasadas</div></div>'+
+        '<div class="kpi '+(stockCrit>0?'crit':'ok')+'"><div class="n mono">'+stockCrit+'</div><div class="l">Productos en stock crítico</div></div>'+
+      '</div>'+
+      '<div class="tabs">'+
+        tabBtn('compras','Compras en curso', critCount+alertaCount)+
+        tabBtn('stock','Stock crítico', stockCrit)+
+        tabBtn('etapas','Etapas del proceso', 0)+
+      '</div>'+
+      '<main class="panels">'+
+        '<section class="panel '+(activeTab==='compras'?'active':'')+'">'+renderCompras()+'</section>'+
+        '<section class="panel '+(activeTab==='stock'?'active':'')+'">'+renderStock()+'</section>'+
+        '<section class="panel '+(activeTab==='etapas'?'active':'')+'">'+renderEtapas()+'</section>'+
+      '</main>'+
+      '<footer class="note">Torre de Control · datos compartidos con todo el equipo vía Google Sheets · calculado con la fecha de hoy en tu navegador</footer>'+
+    '</div>';
+  }
+
+  function tabBtn(id,label,badge){
+    return '<button type="button" class="tab '+(activeTab===id?'active':'')+'" data-tab="'+id+'">'+esc(label)+(badge>0?' <span class="badge">'+badge+'</span>':'')+'</button>';
+  }
+
+  function renderCompras(){
+    var list = STATE.compras.filter(function(c){ return showCompletadas ? true : !c.completada; });
+    list = list.slice().sort(function(a,b){
+      if(!!a.completada !== !!b.completada) return a.completada ? 1 : -1;
+      var ca=calcCompra(a), cb=calcCompra(b);
+      return cb.ratio - ca.ratio;
+    });
+    var rows = list.map(renderCompraCard).join('');
+    return ''+
+    '<div class="toolbar">'+
+      '<label class="toggle"><input type="checkbox" id="chk-completadas" '+(showCompletadas?'checked':'')+'> Mostrar compras ya recibidas</label>'+
+      '<div class="right">'+(isReadOnly?'':'<button type="button" class="btn primary" data-action="nueva-compra">+ Nueva compra</button>')+'</div>'+
+    '</div>'+
+    '<div class="compras-list">'+(rows || '<p class="empty">No hay compras para mostrar. Crea la primera con «+ Nueva compra».</p>')+'</div>';
+  }
+
+  function renderCompraCard(c){
+    var calc = calcCompra(c);
+    var segs = STATE.estados.map(function(e,i){
+      var cls = 'seg';
+      var fillStyle = '';
+      if (i < calc.idx || (calc.terminal && i<=calc.idx)) cls += ' past';
+      else if (i === calc.idx && !calc.terminal) { cls += ' current '+calc.nivel; fillStyle='width:'+Math.round(clamp(calc.ratio,0,1)*100)+'%'; }
+      else if (i===calc.idx && calc.terminal){ cls += ' past'; }
+      return '<div class="'+cls+'" title="'+esc(e.nombre)+'"><div class="fill" style="'+fillStyle+'"></div></div>';
+    }).join('');
+
+    var stageInfo = calc.terminal
+      ? '<span class="stage-name">Recibido en bodega</span>'
+      : '<span class="stage-name">'+esc(calc.estado.nombre)+'</span> — '+calc.dias+' de '+calc.limite+' días';
+
+    return ''+
+    '<div class="card '+(c.completada?'completada':'')+'" data-id="'+c.id+'">'+
+      '<div class="card-top">'+
+        '<div><div class="card-id">'+esc(c.producto)+'</div>'+
+          '<div class="card-meta"><b>'+esc(c.proveedor)+'</b> · '+c.cantidad+' unid. · orden '+esc(fmtDate(c.fechaOrden))+'</div></div>'+
+        '<span class="chip '+calc.nivel+'">'+NIVEL_LABEL[calc.nivel]+'</span>'+
+      '</div>'+
+      '<div class="pipeline">'+segs+'</div>'+
+      '<div class="card-stats"><div>'+stageInfo+'</div><div>ETA estimada: '+esc(fmtDate(calc.eta))+'</div></div>'+
+      (c.nota ? '<div class="nota">'+esc(c.nota)+'</div>' : '')+
+      (isReadOnly ? '' : '<div class="card-actions">'+
+        (!c.completada ? '<button type="button" class="btn small primary" data-action="avanzar" data-id="'+c.id+'">Avanzar etapa →</button>' : '')+
+        '<button type="button" class="btn small" data-action="editar-compra" data-id="'+c.id+'">Editar</button>'+
+        '<button type="button" class="btn small ghost" data-action="eliminar-compra" data-id="'+c.id+'">Eliminar</button>'+
+      '</div>')+
+    '</div>';
+  }
+
+  function renderStock(){
+    var rows = STATE.productos.map(function(p){
+      var calc = calcProducto(p);
+      var cobTxt = isFinite(calc.cobertura) ? calc.cobertura.toFixed(0)+' días' : '—';
+      var transitoTxt = calc.transito>0 ? ' <span class="help" style="display:inline">('+calc.transito+' en tránsito)</span>' : '';
+      var ultimaTxt = calc.ultima ? (fmtDateCorta(calc.ultima.fechaOrden)+' '+calc.ultima.cantidad+'u') : '—';
+      return '<tr>'+
+        '<td>'+esc(p.nombre)+transitoTxt+'</td>'+
+        '<td class="num">'+Number(p.stockCasaMatriz||0)+'</td>'+
+        '<td class="num">'+Number(p.stockLocales||0)+'</td>'+
+        '<td class="num"><b>'+calc.stockTotal+'</b></td>'+
+        '<td class="num">'+Number(p.consumoDiario)+'</td>'+
+        '<td class="num">'+p.leadTimeDias+'</td>'+
+        '<td class="num">'+cobTxt+'</td>'+
+        '<td class="num">'+calc.puntoUnid+'</td>'+
+        '<td class="num">'+(calc.compraSugerida>0 ? '<b>'+calc.compraSugerida+'</b>' : '0')+'</td>'+
+        '<td>'+ultimaTxt+'</td>'+
+        '<td><span class="chip '+calc.nivel+'">'+NIVEL_LABEL_STOCK[calc.nivel]+'</span></td>'+
+        (isReadOnly ? '' : '<td><div class="row-actions"><button type="button" class="btn small icon" data-action="editar-producto" data-id="'+p.id+'" title="Editar" aria-label="Editar">'+ICON_EDITAR+'</button><button type="button" class="btn small ghost icon" data-action="eliminar-producto" data-id="'+p.id+'" title="Eliminar" aria-label="Eliminar">'+ICON_ELIMINAR+'</button></div></td>')+
+      '</tr>';
+    }).join('');
+    return ''+
+    '<div class="toolbar"><div></div><div class="right">'+(isReadOnly?'':'<button type="button" class="btn" data-action="cargar-excel">Cargar Excel (ventas y stock)</button><button type="button" class="btn" data-action="actualizar-lote">Actualizar en lote (texto)</button><button type="button" class="btn primary" data-action="nuevo-producto">+ Nuevo producto</button>')+'</div></div>'+
+    '<div class="table-wrap"><table><thead><tr><th>Producto</th><th>Casa Matriz + Bodega Web</th><th>Locales</th><th>Total</th><th>Consumo/día</th><th>Lead time (d)</th><th>Cobertura</th><th>Punto reorden (unid.)</th><th>Compra sugerida (unid.)</th><th>Última compra</th><th>Estado</th>'+(isReadOnly?'':'<th></th>')+'</tr></thead><tbody>'+
+    (rows || '<tr><td colspan="'+(isReadOnly?11:12)+'" class="empty">Agrega productos para calcular su stock crítico.</td></tr>')+
+    '</tbody></table></div>'+
+    '<p class="help">Casa Matriz + Bodega Web van agrupados. Locales = suma de todas las sucursales Plaza Música. "En tránsito" = unidades de compras vinculadas a este producto que aún no llegan a bodega (columna Producto). Última compra = fecha y cantidad de la orden más reciente vinculada a este producto, venga o no en tránsito. Cobertura = stock total ÷ consumo diario. Punto de reorden = (lead time + stock de seguridad) × consumo diario. Compra sugerida = punto de reorden − stock total − en tránsito (si es mayor a 0). En rojo cuando la cobertura ya no alcanza para esperar la reposición. Para que una compra sume aquí, vincúlala a un producto de la lista al crearla (no elijas "Otro").</p>';
+  }
+
+  function renderEtapas(){
+    var rows = STATE.estados.map(function(e,i){
+      var terminal = i===STATE.estados.length-1;
+      return '<div class="etapa-row" data-id="'+e.id+'">'+
+        '<span class="idx mono">'+(i+1)+'</span>'+
+        '<input type="text" value="'+esc(e.nombre)+'" data-field="nombre" '+(isReadOnly?'disabled':'')+'>'+
+        (terminal ? '<span class="unit">etapa final</span>' : '<input type="number" min="0" value="'+e.dias+'" data-field="dias" '+(isReadOnly?'disabled':'')+'><span class="unit">días</span>')+
+        (isReadOnly ? '' : '<div class="row-actions">'+
+          (i>0?'<button type="button" class="btn ghost small" data-action="mover-etapa" data-dir="-1" data-id="'+e.id+'">↑</button>':'')+
+          (i<STATE.estados.length-1?'<button type="button" class="btn ghost small" data-action="mover-etapa" data-dir="1" data-id="'+e.id+'">↓</button>':'')+
+          (STATE.estados.length>2?'<button type="button" class="btn ghost small" data-action="eliminar-etapa" data-id="'+e.id+'">✕</button>':'')+
+        '</div>')+
+      '</div>';
+    }).join('');
+    return '<div class="etapas-list">'+rows+'</div>'+
+      (isReadOnly?'':'<button type="button" class="btn" data-action="agregar-etapa">+ Agregar etapa</button>')+
+      '<p class="help">Suma actual de días estándar: '+totalDiasEstandar()+' días. Este total se usa para calcular la ETA estimada de cada compra y como referencia para el lead time de reposición en Stock crítico.</p>';
+  }
+
+  function bindEvents(){
+    var app = document.getElementById('app');
+    var tabs = app.querySelectorAll('[data-tab]');
+    for (var i=0;i<tabs.length;i++){
+      tabs[i].addEventListener('click', function(e){ activeTab = e.currentTarget.getAttribute('data-tab'); render(); });
+    }
+    var chk = document.getElementById('chk-completadas');
+    if (chk) chk.addEventListener('change', function(e){ showCompletadas = e.target.checked; render(); });
+
+    app.addEventListener('click', onAppClick);
+    app.querySelectorAll('.etapa-row input').forEach(function(inp){
+      inp.addEventListener('change', onEtapaFieldChange);
+    });
+  }
+
+  function onAppClick(e){
+    var btn = e.target.closest('[data-action]');
+    if (!btn) return;
+    var action = btn.getAttribute('data-action');
+    var id = btn.getAttribute('data-id');
+    if (action==='nueva-compra') openCompraDialog(null);
+    else if (action==='editar-compra') openCompraDialog(id);
+    else if (action==='eliminar-compra') { if(confirm('¿Eliminar esta compra?')){ STATE.compras = STATE.compras.filter(function(c){return c.id!==id;}); mutate(); } }
+    else if (action==='avanzar') avanzarEtapa(id);
+    else if (action==='actualizar-lote') openLoteDialog();
+    else if (action==='cargar-excel') openExcelDialog();
+    else if (action==='nuevo-producto') openProductoDialog(null);
+    else if (action==='editar-producto') openProductoDialog(id);
+    else if (action==='eliminar-producto') { if(confirm('¿Eliminar este producto del seguimiento de stock?')){ STATE.productos = STATE.productos.filter(function(p){return p.id!==id;}); mutate(); } }
+    else if (action==='agregar-etapa') { STATE.estados.splice(STATE.estados.length-1,0,{id:uid('e'),nombre:'Nueva etapa',dias:5}); mutate(); }
+    else if (action==='eliminar-etapa') { STATE.estados = STATE.estados.filter(function(x){return x.id!==id;}); mutate(); }
+    else if (action==='mover-etapa') {
+      var dir = Number(btn.getAttribute('data-dir'));
+      var idx = STATE.estados.findIndex(function(x){return x.id===id;});
+      var j = idx+dir;
+      if (j>=0 && j<STATE.estados.length){
+        var tmp = STATE.estados[idx]; STATE.estados[idx]=STATE.estados[j]; STATE.estados[j]=tmp;
+        mutate();
+      }
+    }
+  }
+
+  function onEtapaFieldChange(e){
+    var row = e.target.closest('.etapa-row');
+    var id = row.getAttribute('data-id');
+    var field = e.target.getAttribute('data-field');
+    var etapa = STATE.estados.find(function(x){return x.id===id;});
+    if (!etapa) return;
+    if (field==='dias') etapa.dias = Math.max(0, Number(e.target.value)||0);
+    else etapa.nombre = e.target.value || etapa.nombre;
+    mutate();
+  }
+
+  function avanzarEtapa(id){
+    var c = STATE.compras.find(function(x){return x.id===id;});
+    if (!c) return;
+    var last = STATE.estados.length-1;
+    if (c.estadoIdx >= last) return;
+    c.historial = c.historial || [];
+    c.historial.push({ etapa: STATE.estados[c.estadoIdx].nombre, inicio:c.fechaInicioEstado, fin: todayISO() });
+    c.estadoIdx += 1;
+    c.fechaInicioEstado = todayISO();
+    if (c.estadoIdx === last) c.completada = true;
+    mutate();
+  }
+
+  function toggleProductoOtro(){
+    var sel = document.getElementById('f-producto-select');
+    var wrap = document.getElementById('f-producto-otro-wrap');
+    wrap.style.display = sel.value === '' ? '' : 'none';
+  }
+
+  function openCompraDialog(id){
+    var dlg = document.getElementById('dlg-compra');
+    var etapaSel = document.getElementById('f-etapa');
+    etapaSel.innerHTML = STATE.estados.map(function(e,i){ return '<option value="'+i+'">'+esc(e.nombre)+'</option>'; }).join('');
+    var prodSel = document.getElementById('f-producto-select');
+    prodSel.innerHTML = '<option value="">Otro (escribir nombre) — no está en la lista de stock crítico</option>'+
+      STATE.productos.map(function(p){ return '<option value="'+p.id+'">'+esc(p.nombre)+'</option>'; }).join('');
+    if (id){
+      var c = STATE.compras.find(function(x){return x.id===id;});
+      document.getElementById('dlg-compra-title').textContent = 'Editar compra';
+      var tieneProductoValido = c.productoId && STATE.productos.some(function(p){return p.id===c.productoId;});
+      prodSel.value = tieneProductoValido ? c.productoId : '';
+      toggleProductoOtro();
+      document.getElementById('f-producto-otro').value = tieneProductoValido ? '' : (c.producto||'');
+      document.getElementById('f-proveedor').value = c.proveedor;
+      document.getElementById('f-cantidad').value = c.cantidad;
+      document.getElementById('f-fechaorden').value = c.fechaOrden;
+      document.getElementById('f-etapa').value = c.estadoIdx;
+      document.getElementById('f-fechaetapa').value = c.fechaInicioEstado;
+      document.getElementById('f-nota').value = c.nota||'';
+      dlg.dataset.editId = id;
+    } else {
+      document.getElementById('dlg-compra-title').textContent = 'Nueva compra';
+      document.getElementById('form-compra').reset();
+      prodSel.value = '';
+      toggleProductoOtro();
+      document.getElementById('f-fechaorden').value = todayISO();
+      document.getElementById('f-fechaetapa').value = todayISO();
+      document.getElementById('f-etapa').value = 0;
+      dlg.dataset.editId = '';
+    }
+    dlg.showModal();
+  }
+
+  function openProductoDialog(id){
+    var dlg = document.getElementById('dlg-producto');
+    if (id){
+      var p = STATE.productos.find(function(x){return x.id===id;});
+      document.getElementById('dlg-producto-title').textContent = 'Editar producto';
+      document.getElementById('p-nombre').value = p.nombre;
+      document.getElementById('p-stock-cm').value = p.stockCasaMatriz||0;
+      document.getElementById('p-stock-loc').value = p.stockLocales||0;
+      document.getElementById('p-consumo').value = p.consumoDiario;
+      document.getElementById('p-leadtime').value = p.leadTimeDias;
+      document.getElementById('p-seguridad').value = p.stockSeguridadDias;
+      dlg.dataset.editId = id;
+    } else {
+      document.getElementById('dlg-producto-title').textContent = 'Nuevo producto';
+      document.getElementById('form-producto').reset();
+      document.getElementById('p-seguridad').value = 7;
+      document.getElementById('p-leadtime').value = totalDiasEstandar();
+      dlg.dataset.editId = '';
+    }
+    dlg.showModal();
+  }
+
+  // SKU -> nombre de modelo (debe coincidir EXACTO con los nombres en STATE.productos).
+  // Un mismo modelo puede agrupar varios SKUs (colores/variantes).
+  var SKU_A_MODELO = (function(){
+    var GRUPOS = {
+      'Reproductor CD Crosley Cruiser': ['CR3505A_MT','CR3505A_LN'],
+      'Reproductor CD Crosley Voyager': ['CR3517A_WB','CR3517A_DU'],
+      'Reproductor CD HOTT C220A': ['76001167385828','76762662380015'],
+      'Reproductor CD PI DS-CD909': ['70266450373180','70300993723961'],
+      'Reproductor CD Plaza Independencia DS-CD01': ['72045707549242'],
+      'Tornamesa Crosley Cruiser (todos los modelos/colores)': ['CR8005F_SI4','CR8005F_BK4_PACK','CR8005F_SG4','CR8005F_IB4','CR8005F_WD4','CR8005F_SI4_PACK','CR8005D_LP4_CHN','CR8005F_BK4','CR8005F_SG4_PACK','CR8005D_TN4_CHN','CR8005F_GA4','CR8005F_AC4','CR8005F_TN4_CHN','CR8005F_IB4_PACK','CR8005D_LA4_CHN','CR8005F_TU4','CR8005F_WS4','CR8005F_RC4','CR8005F_NV4_CHN','CR8005F_EM4','CR8005F_GF4','CR8005F_MT4','CR8005D_DE4_25540','S/CR8005F_NV4_CHN','78700072320522','78700085439480','78700099804709','78700106234086','78700119944535','78700124185165'],
+      'Tornamesa Crosley Voyager BT': ['CR8017B_AM4_CHN','CR8017B_BK4_CHN','CR8017B_CO4','CR8017B_DU4','CR8017B_FL4','CR8017B_GY4_CHN','CR8017B_WB4'],
+      'Tornamesa Crosley Mercury BT': ['CR6255A_BC4-61216','CR6255A_CC4-84718'],
+      'Tornamesa Crosley (varios modelos)': ['CR7020A_GY4','C62C_BK4','C62C_WA4','C65A_WAGL4','C72A_WA4','S/CR6026A_GY','CR6237A_NA4','CR6236A_WA4','S/CR6033A_GY','S/CR6018A_NA','CR6047A_RE4','CR6043A_NA4','CR6045A_BK4','CR6045A_WA4','CR6046A_BKSL4','CR6046A_NASL4','CR6046A_WAGL4','CR6254C-BK4','CR6254C-BK4-28587','CR6254C-BK4-280628','CR6254C-BK4-589306','CR7503A_BK4'],
+      'Tornamesa Audio-Technica AT-LP60XBT-BK': ['AT-LP60XBT-BK-C','AT-LP60XBT-BK','AT-LP60XBT-BK-39154'],
+      'Tornamesa Music Hall US-1': ['602573245392'],
+      'Tornamesa PI Retro DS-619': ['610077479021','S/610077479021','610077479021_PACK'],
+      'Tornamesa The Rolling Stones': ['610077483523','610077483622'],
+      'Kit de limpieza vinilos PM': ['610077483325'],
+      'Funda exterior vinilos PM (25u)': ['610077483028'],
+      'Bolsa ecológica PM (grande)': ['840705113625']
+    };
+    var map = {};
+    Object.keys(GRUPOS).forEach(function(modelo){
+      GRUPOS[modelo].forEach(function(sku){ map[String(sku).trim().toUpperCase()] = modelo; });
+    });
+    return map;
+  })();
+
+  var excelResultado = null; // { modelo: {stock, consumoDiario, ventasPeriodo} }
+
+  function openExcelDialog(){
+    var dlg = document.getElementById('dlg-excel');
+    document.getElementById('excel-ventas').value = '';
+    document.getElementById('excel-stock').value = '';
+    document.getElementById('excel-desde').value = '';
+    document.getElementById('excel-hasta').value = '';
+    document.getElementById('excel-status').textContent = '';
+    document.getElementById('excel-preview').innerHTML = '';
+    document.getElementById('btn-aplicar-excel').disabled = true;
+    excelResultado = null;
+    dlg.showModal();
+  }
+
+  function leerLibro(file){
+    return new Promise(function(resolve, reject){
+      var reader = new FileReader();
+      reader.onload = function(e){
+        try{
+          var data = new Uint8Array(e.target.result);
+          var wb = XLSX.read(data, { type:'array', cellDates:true });
+          var ws = wb.Sheets[wb.SheetNames[0]];
+          var aoa = XLSX.utils.sheet_to_json(ws, { header:1, defval:'', raw:true });
+          resolve(aoa);
+        } catch(err){ reject(err); }
+      };
+      reader.onerror = function(){ reject(new Error('No se pudo leer el archivo')); };
+      reader.readAsArrayBuffer(file);
+    });
+  }
+
+  function normKey(s){ return String(s==null?'':s).trim().toLowerCase(); }
+
+  function encontrarFilaEncabezado(aoa){
+    for (var i=0;i<Math.min(aoa.length,20);i++){
+      var fila = aoa[i] || [];
+      for (var j=0;j<fila.length;j++){
+        if (normKey(fila[j]) === 'sku') return i;
+      }
+    }
+    return -1;
+  }
+
+  function filasAObjetos(aoa, headerIdx){
+    var headers = aoa[headerIdx].map(function(h){ return String(h==null?'':h).trim(); });
+    var out = [];
+    for (var i=headerIdx+1;i<aoa.length;i++){
+      var fila = aoa[i];
+      if (!fila || fila.length===0) continue;
+      var obj = {};
+      var vacio = true;
+      for (var j=0;j<headers.length;j++){
+        var v = fila[j];
+        if (v!==undefined && v!==null && v!=='') vacio = false;
+        obj[headers[j]] = v;
+      }
+      if (!vacio) out.push(obj);
+    }
+    return out;
+  }
+
+  function buscarCampo(obj, nombres){
+    var keys = Object.keys(obj);
+    for (var i=0;i<nombres.length;i++){
+      for (var j=0;j<keys.length;j++){
+        if (normKey(keys[j]) === normKey(nombres[i])) return obj[keys[j]];
+      }
+    }
+    return undefined;
+  }
+
+  function parseFechaCelda(v){
+    if (v instanceof Date && !isNaN(v)) return v;
+    if (typeof v === 'number'){
+      var jd = XLSX.SSF && XLSX.SSF.parse_date_code ? XLSX.SSF.parse_date_code(v) : null;
+      if (jd) return new Date(jd.y, jd.m-1, jd.d, jd.H||0, jd.M||0, jd.S||0);
+      return null;
+    }
+    if (typeof v === 'string'){
+      var m = v.trim().match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+      if (m) return new Date(Number(m[3]), Number(m[2])-1, Number(m[1]));
+    }
+    return null;
+  }
+
+  function procesarExcel(){
+    var statusEl = document.getElementById('excel-status');
+    var previewEl = document.getElementById('excel-preview');
+    var aplicarBtn = document.getElementById('btn-aplicar-excel');
+    previewEl.innerHTML = '';
+    aplicarBtn.disabled = true;
+    excelResultado = null;
+
+    if (typeof XLSX === 'undefined'){
+      statusEl.textContent = 'No se pudo cargar la librería para leer Excel (revisa tu conexión a internet e intenta de nuevo).';
+      return;
+    }
+    var fVentas = document.getElementById('excel-ventas').files[0];
+    var fStock = document.getElementById('excel-stock').files[0];
+    if (!fVentas || !fStock){
+      statusEl.textContent = 'Selecciona los dos archivos (ventas y stock).';
+      return;
+    }
+    var desdeVal = document.getElementById('excel-desde').value;
+    var hastaVal = document.getElementById('excel-hasta').value;
+    if (!desdeVal || !hastaVal){
+      statusEl.textContent = 'Indica el rango de fechas de ventas a usar (desde / hasta).';
+      return;
+    }
+    var desde = new Date(desdeVal+'T00:00:00');
+    var hasta = new Date(hastaVal+'T23:59:59');
+    var periodoDias = Math.round((hasta-desde)/86400000) + 1;
+    if (periodoDias <= 0){
+      statusEl.textContent = 'El rango de fechas no es válido.';
+      return;
+    }
+
+    statusEl.textContent = 'Procesando…';
+
+    Promise.all([leerLibro(fVentas), leerLibro(fStock)]).then(function(res){
+      var aoaVentas = res[0], aoaStock = res[1];
+
+      var hVentas = encontrarFilaEncabezado(aoaVentas);
+      var hStock = encontrarFilaEncabezado(aoaStock);
+      if (hVentas === -1 || hStock === -1){
+        statusEl.textContent = 'No encontré una columna "SKU" en uno de los archivos. Revisa que sean los exportados desde Bsale.';
+        return;
+      }
+      var ventas = filasAObjetos(aoaVentas, hVentas);
+      var stockRows = filasAObjetos(aoaStock, hStock);
+
+      // --- Stock por modelo, separado en Casa Matriz + Bodega Web vs Locales (sucursales Plaza Música) ---
+      var stockCasaMatrizPorModelo = {};
+      var stockLocalesPorModelo = {};
+      var skusStockNoReconocidos = 0;
+      stockRows.forEach(function(row){
+        var sku = String(buscarCampo(row, ['SKU'])||'').trim().toUpperCase();
+        if (!sku) return;
+        var modelo = SKU_A_MODELO[sku];
+        if (!modelo){ skusStockNoReconocidos++; return; }
+        var stockVal = Number(buscarCampo(row, ['Stock'])) || 0;
+        var sucursal = normKey(buscarCampo(row, ['Sucursal']));
+        if (sucursal.indexOf('casa matriz') !== -1 || sucursal.indexOf('bodega web') !== -1){
+          stockCasaMatrizPorModelo[modelo] = (stockCasaMatrizPorModelo[modelo]||0) + stockVal;
+        } else {
+          stockLocalesPorModelo[modelo] = (stockLocalesPorModelo[modelo]||0) + stockVal;
+        }
+      });
+      var modelosConStock = {};
+      Object.keys(stockCasaMatrizPorModelo).forEach(function(m){ modelosConStock[m]=true; });
+      Object.keys(stockLocalesPorModelo).forEach(function(m){ modelosConStock[m]=true; });
+
+      // --- Consumo por modelo dentro del rango de fechas ---
+      var ventasPorModelo = {};
+      var filasFueraDeRango = 0, skusVentaNoReconocidos = 0;
+      ventas.forEach(function(row){
+        var sku = String(buscarCampo(row, ['SKU'])||'').trim().toUpperCase();
+        if (!sku) return;
+        var modelo = SKU_A_MODELO[sku];
+        if (!modelo){ skusVentaNoReconocidos++; return; }
+        var fechaRaw = buscarCampo(row, ['Fecha y Hora Venta','Fecha']);
+        var fecha = parseFechaCelda(fechaRaw);
+        if (!fecha || fecha < desde || fecha > hasta){ filasFueraDeRango++; return; }
+        var tipo = normKey(buscarCampo(row, ['Tipo Movimiento']));
+        var cantidad = Number(buscarCampo(row, ['Cantidad'])) || 0;
+        var qtyNeta = (tipo === 'venta') ? cantidad : -cantidad;
+        ventasPorModelo[modelo] = (ventasPorModelo[modelo]||0) + qtyNeta;
+      });
+
+      // --- Armar resultado y vista previa ---
+      var resultado = {};
+      var modelosTocados = {};
+      Object.keys(modelosConStock).forEach(function(m){ modelosTocados[m]=true; });
+      Object.keys(ventasPorModelo).forEach(function(m){ modelosTocados[m]=true; });
+
+      var filas = STATE.productos.map(function(p){
+        var tocado = !!modelosTocados[p.nombre];
+        var tieneStock = !!modelosConStock[p.nombre];
+        var stockCMNuevo = tieneStock ? (stockCasaMatrizPorModelo[p.nombre]||0) : p.stockCasaMatriz;
+        var stockLocNuevo = tieneStock ? (stockLocalesPorModelo[p.nombre]||0) : p.stockLocales;
+        var ventasPeriodo = ventasPorModelo.hasOwnProperty(p.nombre) ? ventasPorModelo[p.nombre] : null;
+        var consumoNuevo = ventasPeriodo===null ? p.consumoDiario : (ventasPeriodo/periodoDias);
+        if (tocado) resultado[p.nombre] = { stockCasaMatriz: Math.round(stockCMNuevo), stockLocales: Math.round(stockLocNuevo), consumoDiario: Math.round(consumoNuevo*1000)/1000 };
+        return {
+          nombre: p.nombre, tocado: tocado,
+          stockCMActual: p.stockCasaMatriz||0, stockCMNuevo: Math.round(stockCMNuevo),
+          stockLocActual: p.stockLocales||0, stockLocNuevo: Math.round(stockLocNuevo),
+          consumoActual: p.consumoDiario, consumoNuevo: Math.round(consumoNuevo*1000)/1000
+        };
+      });
+
+      var html = '<div class="table-wrap"><table><thead><tr><th>Producto</th><th>Casa Matriz + Bodega Web actual → nuevo</th><th>Locales actual → nuevo</th><th>Consumo/día actual → nuevo</th></tr></thead><tbody>';
+      filas.forEach(function(f){
+        html += '<tr'+(f.tocado?'':' style="opacity:.45"')+'>'+
+          '<td>'+esc(f.nombre)+(f.tocado?'':' <span class="help" style="display:inline">(sin datos en los archivos)</span>')+'</td>'+
+          '<td class="num">'+f.stockCMActual+' → <b>'+f.stockCMNuevo+'</b></td>'+
+          '<td class="num">'+f.stockLocActual+' → <b>'+f.stockLocNuevo+'</b></td>'+
+          '<td class="num">'+f.consumoActual+' → <b>'+f.consumoNuevo+'</b></td>'+
+        '</tr>';
+      });
+      html += '</tbody></table></div>';
+      previewEl.innerHTML = html;
+
+      var actualizables = Object.keys(resultado).length;
+      var msg = 'Período: '+periodoDias+' días. Se actualizarían '+actualizables+' de '+STATE.productos.length+' productos.';
+      if (skusStockNoReconocidos || skusVentaNoReconocidos) msg += ' (SKUs en los archivos que no pertenecen a la lista de seguimiento: '+ (skusStockNoReconocidos+skusVentaNoReconocidos) +', se ignoran.)';
+      statusEl.textContent = msg;
+
+      excelResultado = actualizables>0 ? resultado : null;
+      aplicarBtn.disabled = actualizables===0;
+    }).catch(function(err){
+      statusEl.textContent = 'Ocurrió un error leyendo los archivos: ' + (err && err.message ? err.message : err);
+    });
+  }
+
+  function aplicarExcelResultado(){
+    if (!excelResultado) return;
+    var n = 0;
+    STATE.productos.forEach(function(p){
+      if (excelResultado.hasOwnProperty(p.nombre)){
+        p.stockCasaMatriz = excelResultado[p.nombre].stockCasaMatriz;
+        p.stockLocales = excelResultado[p.nombre].stockLocales;
+        p.consumoDiario = excelResultado[p.nombre].consumoDiario;
+        n++;
+      }
+    });
+    document.getElementById('excel-status').textContent = n + ' producto(s) actualizados desde los archivos.';
+    document.getElementById('btn-aplicar-excel').disabled = true;
+    excelResultado = null;
+    mutate();
+  }
+
+  function openLoteDialog(){
+    var dlg = document.getElementById('dlg-lote');
+    document.getElementById('lote-texto').value = '';
+    document.getElementById('lote-status').textContent = '';
+    dlg.showModal();
+  }
+
+  function aplicarLote(){
+    var texto = document.getElementById('lote-texto').value;
+    var lineas = texto.split('\n').map(function(l){ return l.trim(); }).filter(function(l){ return l.length>0; });
+    var actualizados = [], noEncontrados = [], invalidas = [];
+    lineas.forEach(function(linea){
+      var partes = linea.split(/\t|,/).map(function(s){ return s.trim(); });
+      if (partes.length < 4){ invalidas.push(linea); return; }
+      var nombre = partes[0];
+      var stockCM = Number(partes[1].replace(',','.'));
+      var stockLoc = Number(partes[2].replace(',','.'));
+      var consumo = Number(partes[3].replace(',','.'));
+      if (!nombre || isNaN(stockCM) || isNaN(stockLoc) || isNaN(consumo)){ invalidas.push(linea); return; }
+      var p = STATE.productos.find(function(x){ return x.nombre.trim().toLowerCase() === nombre.toLowerCase(); });
+      if (p){ p.stockCasaMatriz = stockCM; p.stockLocales = stockLoc; p.consumoDiario = consumo; actualizados.push(nombre); }
+      else { noEncontrados.push(nombre); }
+    });
+    var msg = actualizados.length + ' producto(s) actualizados.';
+    if (noEncontrados.length) msg += ' No reconocidos (revisa el nombre exacto): ' + noEncontrados.join(', ') + '.';
+    if (invalidas.length) msg += ' Líneas con formato inválido: ' + invalidas.join(' | ') + '.';
+    document.getElementById('lote-status').textContent = msg;
+    if (actualizados.length) mutate();
+  }
+
+  document.getElementById('btn-aplicar-lote').addEventListener('click', aplicarLote);
+  document.getElementById('btn-procesar-excel').addEventListener('click', procesarExcel);
+  document.getElementById('btn-aplicar-excel').addEventListener('click', aplicarExcelResultado);
+  document.getElementById('f-producto-select').addEventListener('change', toggleProductoOtro);
+
+  document.querySelectorAll('[data-close-dialog]').forEach(function(b){
+    b.addEventListener('click', function(){ document.getElementById(b.getAttribute('data-close-dialog')).close(); });
+  });
+
+  document.getElementById('form-compra').addEventListener('submit', function(e){
+    e.preventDefault();
+    var dlg = document.getElementById('dlg-compra');
+    var id = dlg.dataset.editId;
+    var selectedId = document.getElementById('f-producto-select').value;
+    var pSel = selectedId ? STATE.productos.find(function(x){return x.id===selectedId;}) : null;
+    var productoNombre = pSel ? pSel.nombre : document.getElementById('f-producto-otro').value.trim();
+    var data = {
+      productoId: pSel ? pSel.id : null,
+      producto: productoNombre,
+      proveedor: document.getElementById('f-proveedor').value.trim(),
+      cantidad: Number(document.getElementById('f-cantidad').value)||0,
+      fechaOrden: document.getElementById('f-fechaorden').value,
+      estadoIdx: Number(document.getElementById('f-etapa').value)||0,
+      fechaInicioEstado: document.getElementById('f-fechaetapa').value,
+      nota: document.getElementById('f-nota').value.trim()
+    };
+    if (!data.producto || !data.proveedor || !data.fechaOrden || !data.fechaInicioEstado) return;
+    if (id){
+      var c = STATE.compras.find(function(x){return x.id===id;});
+      Object.assign(c, data);
+      c.completada = data.estadoIdx === STATE.estados.length-1;
+    } else {
+      data.id = uid('c'); data.historial = []; data.completada = data.estadoIdx === STATE.estados.length-1;
+      STATE.compras.push(data);
+    }
+    dlg.close();
+    mutate();
+  });
+
+  document.getElementById('form-producto').addEventListener('submit', function(e){
+    e.preventDefault();
+    var dlg = document.getElementById('dlg-producto');
+    var id = dlg.dataset.editId;
+    var data = {
+      nombre: document.getElementById('p-nombre').value.trim(),
+      stockCasaMatriz: Number(document.getElementById('p-stock-cm').value)||0,
+      stockLocales: Number(document.getElementById('p-stock-loc').value)||0,
+      consumoDiario: Number(document.getElementById('p-consumo').value)||0,
+      leadTimeDias: Number(document.getElementById('p-leadtime').value)||0,
+      stockSeguridadDias: Number(document.getElementById('p-seguridad').value)||0
+    };
+    if (!data.nombre) return;
+    if (id){
+      var p = STATE.productos.find(function(x){return x.id===id;});
+      Object.assign(p, data);
+    } else {
+      data.id = uid('p');
+      STATE.productos.push(data);
+    }
+    dlg.close();
+    mutate();
+  });
+
+  // ================================================================
+  //  PERSISTENCIA — Google Sheets API
+  // ================================================================
+
+  function mutate(){
+    render();
+    saveToSheet();
+  }
+
+  function sheetsApiUrl(path){ return 'https://sheets.googleapis.com/v4/spreadsheets/'+SPREADSHEET_ID+path; }
+
+  function authFetch(url, opts, retried){
+    opts = opts || {};
+    var headers = {};
+    for (var k in (opts.headers||{})) headers[k] = opts.headers[k];
+    headers['Authorization'] = 'Bearer '+ACCESS_TOKEN;
+    var opts2 = { method: opts.method, headers: headers, body: opts.body };
+    return fetch(url, opts2).then(function(res){
+      if (res.status === 401 && !retried){
+        return reauth().then(function(){ return authFetch(url, opts, true); });
+      }
+      return res;
+    });
+  }
+
+  // ---- Conversión filas de Sheets <-> STATE ----
+
+  function toNum(v){ var n = Number(v); return isNaN(n) ? 0 : n; }
+
+  function parseProductos(rows){
+    if (!rows || rows.length<2) return [];
+    return rows.slice(1).filter(function(r){ return r && r[0]; }).map(function(r){
+      return {
+        id: r[0], nombre: r[1]||'', consumoDiario: toNum(r[2]), leadTimeDias: toNum(r[3]),
+        stockSeguridadDias: toNum(r[4]), stockCasaMatriz: toNum(r[5]), stockLocales: toNum(r[6])
+      };
+    });
+  }
+  function productosToRows(){
+    var header = ['id','nombre','consumoDiario','leadTimeDias','stockSeguridadDias','stockCasaMatriz','stockLocales'];
+    return [header].concat(STATE.productos.map(function(p){
+      return [p.id, p.nombre, p.consumoDiario, p.leadTimeDias, p.stockSeguridadDias, p.stockCasaMatriz, p.stockLocales];
+    }));
+  }
+
+  function parseCompras(rows){
+    if (!rows || rows.length<2) return [];
+    return rows.slice(1).filter(function(r){ return r && r[0]; }).map(function(r){
+      var historial = [];
+      try{ historial = r[10] ? JSON.parse(r[10]) : []; }catch(e){ historial = []; }
+      return {
+        id: r[0], productoId: r[1]||null, producto: r[2]||'', proveedor: r[3]||'',
+        cantidad: toNum(r[4]), fechaOrden: r[5]||'', estadoIdx: toNum(r[6]), fechaInicioEstado: r[7]||'',
+        nota: r[8]||'', completada: String(r[9]).toUpperCase()==='TRUE', historial: historial
+      };
+    });
+  }
+  function comprasToRows(){
+    var header = ['id','productoId','producto','proveedor','cantidad','fechaOrden','estadoIdx','fechaInicioEstado','nota','completada','historial'];
+    return [header].concat(STATE.compras.map(function(c){
+      return [c.id, c.productoId||'', c.producto, c.proveedor, c.cantidad, c.fechaOrden, c.estadoIdx, c.fechaInicioEstado, c.nota||'', c.completada?'TRUE':'FALSE', JSON.stringify(c.historial||[])];
+    }));
+  }
+
+  function parseEstados(rows){
+    if (!rows || rows.length<2) return [];
+    return rows.slice(1).filter(function(r){ return r && r[0]; }).map(function(r){
+      return { id: r[0], nombre: r[1]||'', dias: toNum(r[2]) };
+    });
+  }
+  function estadosToRows(){
+    var header = ['id','nombre','dias'];
+    return [header].concat(STATE.estados.map(function(e){ return [e.id, e.nombre, e.dias]; }));
+  }
+
+  function parseMeta(rows){
+    var updated = new Date().toISOString();
+    if (rows && rows.length>1){
+      for (var i=1;i<rows.length;i++){
+        if (rows[i][0]==='updated' && rows[i][1]) { updated = rows[i][1]; break; }
+      }
+    }
+    return { updated: updated };
+  }
+  function metaToRows(){
+    return [['key','value'], ['updated', STATE.meta.updated]];
+  }
+
+  function loadFromSheet(){
+    var ranges = ['productos!A:G','compras!A:K','estados!A:C','meta!A:B'];
+    var url = sheetsApiUrl('/values:batchGet?' + ranges.map(function(r){ return 'ranges='+encodeURIComponent(r); }).join('&'));
+    return authFetch(url).then(function(res){
+      if (!res.ok){
+        if (res.status === 403) { var e = new Error('sin acceso'); e.code='no_access'; throw e; }
+        var e2 = new Error('error http '+res.status); e2.code='http_error'; throw e2;
+      }
+      return res.json();
+    }).then(function(data){
+      var vr = data.valueRanges || [];
+      STATE = {
+        productos: parseProductos((vr[0]||{}).values),
+        compras: parseCompras((vr[1]||{}).values),
+        estados: parseEstados((vr[2]||{}).values),
+        meta: parseMeta((vr[3]||{}).values)
+      };
+      lastKnownUpdated = STATE.meta.updated;
+      loadError = null;
+    });
+  }
+
+  function saveToSheet(){
+    syncStatus = 'saving';
+    renderTopbarOnly();
+    var checkUrl = sheetsApiUrl('/values/'+encodeURIComponent('meta!A:B'));
+    return authFetch(checkUrl).then(function(res){ return res.ok ? res.json() : {values:null}; }).then(function(data){
+      var remoteMeta = parseMeta(data.values);
+      if (lastKnownUpdated && data.values && remoteMeta.updated !== lastKnownUpdated){
+        return loadFromSheet().then(function(){
+          render();
+          alert('Otra persona guardó un cambio justo antes que tú. Se actualizó la información con lo más reciente — por favor repite tu cambio.');
+          var e = new Error('conflicto'); e.code='conflict'; throw e;
+        });
+      }
+      STATE.meta.updated = new Date().toISOString();
+      var clearBody = { ranges: ['productos!A2:G100000','compras!A2:K100000','estados!A2:C1000','meta!A2:B1000'] };
+      return authFetch(sheetsApiUrl('/values:batchClear'), { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(clearBody) });
+    }).then(function(res){
+      if (res && !res.ok) { var e = new Error('error clear'); e.status=res.status; throw e; }
+      var body = {
+        valueInputOption: 'RAW',
+        data: [
+          { range:'productos!A1', values: productosToRows() },
+          { range:'compras!A1', values: comprasToRows() },
+          { range:'estados!A1', values: estadosToRows() },
+          { range:'meta!A1', values: metaToRows() }
+        ]
+      };
+      return authFetch(sheetsApiUrl('/values:batchUpdate'), { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body) });
+    }).then(function(res){
+      if (!res.ok){ var e = new Error('error update'); e.status=res.status; throw e; }
+      lastKnownUpdated = STATE.meta.updated;
+      syncStatus = 'saved';
+      renderTopbarOnly();
+    }).catch(function(err){
+      if (err && err.code==='conflict') return;
+      if (err && (err.status===403)){
+        isReadOnly = true;
+        syncStatus = 'error';
+        render();
+        return;
+      }
+      syncStatus = 'error';
+      renderTopbarOnly();
+      console.error('Error guardando en Sheets:', err);
+    });
+  }
+
+  // ---- Sincronización periódica (por si otra persona hizo cambios) ----
+  setInterval(function(){
+    if (!ACCESS_TOKEN || !STATE || syncStatus==='saving') return;
+    if (document.querySelector('dialog[open]')) return; // no interrumpir edición en curso
+    authFetch(sheetsApiUrl('/values/'+encodeURIComponent('meta!A:B'))).then(function(res){
+      return res.ok ? res.json() : null;
+    }).then(function(data){
+      if (!data) return;
+      var remoteMeta = parseMeta(data.values);
+      if (remoteMeta.updated && remoteMeta.updated !== lastKnownUpdated){
+        return loadFromSheet().then(function(){ render(); });
+      }
+    }).catch(function(){});
+  }, 15000);
+
+  // ================================================================
+  //  AUTENTICACIÓN — Google Identity Services
+  // ================================================================
+
+  function requestToken(prompt){
+    return new Promise(function(resolve, reject){
+      pendingTokenResolve = resolve;
+      pendingTokenReject = reject;
+      tokenClient.requestAccessToken({ prompt: prompt===undefined ? 'consent' : prompt });
+    });
+  }
+
+  function reauth(){ return requestToken(''); }
+
+  function signIn(){ requestToken('consent').catch(function(){ /* usuario canceló o falló */ }); }
+
+  function signOut(){
+    if (ACCESS_TOKEN && window.google && google.accounts && google.accounts.oauth2){
+      google.accounts.oauth2.revoke(ACCESS_TOKEN, function(){});
+    }
+    ACCESS_TOKEN = null; STATE = null; userEmail = null; loadError = null; isReadOnly = false;
+    render();
+  }
+
+  function fetchUserEmail(){
+    return authFetch('https://www.googleapis.com/oauth2/v3/userinfo').then(function(res){
+      return res.ok ? res.json() : {};
+    }).then(function(info){ userEmail = info.email || null; }).catch(function(){ userEmail = null; });
+  }
+
+  function onSignedIn(){
+    render();
+    fetchUserEmail().then(function(){
+      render();
+      return loadFromSheet();
+    }).then(function(){
+      render();
+    }).catch(function(err){
+      loadError = (err && err.code==='no_access') ? 'no_access' : 'error';
+      render();
+    });
+  }
+
+  function initGoogle(){
+    if (!window.google || !google.accounts || !google.accounts.oauth2){
+      setTimeout(initGoogle, 200);
+      return;
+    }
+    tokenClient = google.accounts.oauth2.initTokenClient({
+      client_id: CLIENT_ID,
+      scope: 'https://www.googleapis.com/auth/spreadsheets email',
+      callback: function(resp){
+        if (resp && resp.access_token){
+          ACCESS_TOKEN = resp.access_token;
+          if (pendingTokenResolve){ var r=pendingTokenResolve; pendingTokenResolve=null; pendingTokenReject=null; r(resp); }
+          onSignedIn();
+        } else {
+          if (pendingTokenReject){ var j=pendingTokenReject; pendingTokenResolve=null; pendingTokenReject=null; j(resp); }
+        }
+      },
+      error_callback: function(err){
+        if (pendingTokenReject){ var j2=pendingTokenReject; pendingTokenResolve=null; pendingTokenReject=null; j2(err); }
+        render();
+      }
+    });
+    render();
+    // intento de inicio de sesión silencioso (funciona si el navegador ya tiene una sesión de consentimiento reciente)
+    requestToken('').catch(function(){ /* no había sesión previa: se queda en la pantalla de login */ });
+  }
+
+  document.addEventListener('DOMContentLoaded', function(){
+    render();
+    initGoogle();
+  });
+  if (document.readyState !== 'loading'){ render(); initGoogle(); }
+})();
+</script>
+</body>
+</html>
