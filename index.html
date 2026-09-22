@@ -314,6 +314,7 @@
   // ================================================================
   var CLIENT_ID = '850116430804-7ao85s5jm933c178shjld8icq11ifo34.apps.googleusercontent.com';
   var SPREADSHEET_ID = '1ljGjEy6lcecuKiLZYzEIKQNeu5kLBM_5YpBXjb1vA-I';
+  var APP_VERSION = 'cacodro220926_1448';
   // ================================================================
 
   var DAY = 86400000;
@@ -476,6 +477,7 @@
     return '<div class="topbar"><div class="topbar-inner">'+
       '<span class="topbar-user">'+esc(userEmail||'')+'</span>'+
       '<span class="topbar-status">'+esc(statusTxt)+'</span>'+
+      '<span class="topbar-version" style="opacity:.45;font-size:11px;margin-right:8px;">'+esc(APP_VERSION)+'</span>'+
       '<button type="button" class="btn ghost small" id="btn-signout">Cerrar sesión</button>'+
     '</div></div>';
   }
@@ -514,7 +516,7 @@
         '<section class="panel '+(activeTab==='stock'?'active':'')+'">'+renderStock()+'</section>'+
         '<section class="panel '+(activeTab==='etapas'?'active':'')+'">'+renderEtapas()+'</section>'+
       '</main>'+
-      '<footer class="note">Torre de Control · datos compartidos con todo el equipo vía Google Sheets · calculado con la fecha de hoy en tu navegador</footer>'+
+      '<footer class="note">Torre de Control · datos compartidos con todo el equipo vía Google Sheets · calculado con la fecha de hoy en tu navegador · versión '+esc(APP_VERSION)+'</footer>'+
     '</div>';
   }
 
