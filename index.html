@@ -230,6 +230,17 @@
         <div class="field"><label>Etapa actual</label><select id="f-etapa"></select></div>
       </div>
       <div class="field"><label>Inicio de la etapa actual</label><input type="date" id="f-fechaetapa" required></div>
+      <div class="field">
+        <label>Lead time (tiempos por etapa)</label>
+        <div style="display:flex; gap:18px; margin-bottom:10px;">
+          <label class="toggle"><input type="radio" name="f-leadtime-tipo" id="f-leadtime-normal" value="normal"> Normal (configurado en la plataforma)</label>
+          <label class="toggle"><input type="radio" name="f-leadtime-tipo" id="f-leadtime-custom" value="custom"> Personalizado para esta compra</label>
+        </div>
+        <div id="f-leadtime-custom-wrap" style="display:none;">
+          <p class="help">Ajusta los días de cada etapa solo para esta compra (por ejemplo, un proveedor con stock que se demora menos). Las demás compras siguen usando los tiempos normales.</p>
+          <div id="f-leadtime-etapas" class="etapas-list"></div>
+        </div>
+      </div>
       <div class="field"><label>Notas (opcional)</label><textarea id="f-nota"></textarea></div>
     </div>
     <div class="dlg-foot">
@@ -314,7 +325,7 @@
   // ================================================================
   var CLIENT_ID = '850116430804-7ao85s5jm933c178shjld8icq11ifo34.apps.googleusercontent.com';
   var SPREADSHEET_ID = '1ljGjEy6lcecuKiLZYzEIKQNeu5kLBM_5YpBXjb1vA-I';
-  var APP_VERSION = 'cacodro220926_1448';
+  var APP_VERSION = 'cacodro191026_1703';
   // ================================================================
 
   var DAY = 86400000;
@@ -346,18 +357,31 @@
 
   function totalDiasEstandar(){ return STATE.estados.reduce(function(s,e){return s+Number(e.dias||0);},0); }
 
+  // Días de una etapa para una compra en particular: usa el lead time personalizado
+  // de esa compra si lo tiene definido para esa etapa; si no, el tiempo normal/estándar.
+  function diasEtapaParaCompra(c, idx){
+    var estado = STATE.estados[idx];
+    if (c.leadTimeCustom && estado && c.leadTimeCustom.hasOwnProperty(estado.id)){
+      return Number(c.leadTimeCustom[estado.id]) || 0;
+    }
+    return Number(estado && estado.dias || 0);
+  }
+  function totalDiasParaCompra(c){
+    return STATE.estados.reduce(function(s,e,i){ return s + diasEtapaParaCompra(c, i); }, 0);
+  }
+
   function calcCompra(c){
     var idx = clamp(c.estadoIdx,0,STATE.estados.length-1);
     var estado = STATE.estados[idx];
     var terminal = idx === STATE.estados.length-1;
     var dias = terminal ? 0 : daysBetween(c.fechaInicioEstado, todayISO());
-    var limite = Number(estado.dias||0);
+    var limite = diasEtapaParaCompra(c, idx);
     var ratio = (!terminal && limite>0) ? dias/limite : 0;
     var nivel = 'ok';
     if (terminal || c.completada) nivel = 'done';
     else if (ratio >= 1) nivel = 'crit';
     else if (ratio >= 0.7) nivel = 'warn';
-    var eta = addDays(c.fechaOrden, totalDiasEstandar());
+    var eta = addDays(c.fechaOrden, totalDiasParaCompra(c));
     return { estado:estado, idx:idx, terminal:terminal, dias:dias, limite:limite, ratio:ratio, nivel:nivel, eta:eta };
   }
 
@@ -559,7 +583,7 @@
     '<div class="card '+(c.completada?'completada':'')+'" data-id="'+c.id+'">'+
       '<div class="card-top">'+
         '<div><div class="card-id">'+esc(c.producto)+'</div>'+
-          '<div class="card-meta"><b>'+esc(c.proveedor)+'</b> · '+c.cantidad+' unid. · orden '+esc(fmtDate(c.fechaOrden))+'</div></div>'+
+          '<div class="card-meta"><b>'+esc(c.proveedor)+'</b> · '+c.cantidad+' unid. · orden '+esc(fmtDate(c.fechaOrden))+(c.leadTimeCustom ? ' · <span title="Esta compra usa tiempos por etapa distintos a los normales">lead time personalizado</span>' : '')+'</div></div>'+
         '<span class="chip '+calc.nivel+'">'+NIVEL_LABEL[calc.nivel]+'</span>'+
       '</div>'+
       '<div class="pipeline">'+segs+'</div>'+
@@ -693,6 +717,28 @@
     wrap.style.display = sel.value === '' ? '' : 'none';
   }
 
+  // Construye las filas editables de días por etapa para el formulario de compra.
+  // customMap: { etapaId: dias } con los valores ya guardados de esta compra, o null/undefined
+  // para partir desde los tiempos normales configurados en la plataforma.
+  function buildLeadtimeEtapasHTML(customMap){
+    return STATE.estados.map(function(e,i){
+      var terminal = i === STATE.estados.length-1;
+      if (terminal) return '';
+      var dias = (customMap && customMap.hasOwnProperty(e.id)) ? customMap[e.id] : e.dias;
+      return '<div class="etapa-row">'+
+        '<span class="idx mono">'+(i+1)+'</span>'+
+        '<span style="flex:1;">'+esc(e.nombre)+'</span>'+
+        '<input type="number" min="0" data-etapa-id="'+e.id+'" value="'+Number(dias||0)+'">'+
+        '<span class="unit">días</span>'+
+      '</div>';
+    }).join('');
+  }
+
+  function toggleLeadtimeCustom(){
+    var custom = document.getElementById('f-leadtime-custom').checked;
+    document.getElementById('f-leadtime-custom-wrap').style.display = custom ? '' : 'none';
+  }
+
   function openCompraDialog(id){
     var dlg = document.getElementById('dlg-compra');
     var etapaSel = document.getElementById('f-etapa');
@@ -713,6 +759,9 @@
       document.getElementById('f-etapa').value = c.estadoIdx;
       document.getElementById('f-fechaetapa').value = c.fechaInicioEstado;
       document.getElementById('f-nota').value = c.nota||'';
+      document.getElementById('f-leadtime-etapas').innerHTML = buildLeadtimeEtapasHTML(c.leadTimeCustom||null);
+      document.getElementById('f-leadtime-normal').checked = !c.leadTimeCustom;
+      document.getElementById('f-leadtime-custom').checked = !!c.leadTimeCustom;
       dlg.dataset.editId = id;
     } else {
       document.getElementById('dlg-compra-title').textContent = 'Nueva compra';
@@ -722,8 +771,12 @@
       document.getElementById('f-fechaorden').value = todayISO();
       document.getElementById('f-fechaetapa').value = todayISO();
       document.getElementById('f-etapa').value = 0;
+      document.getElementById('f-leadtime-etapas').innerHTML = buildLeadtimeEtapasHTML(null);
+      document.getElementById('f-leadtime-normal').checked = true;
+      document.getElementById('f-leadtime-custom').checked = false;
       dlg.dataset.editId = '';
     }
+    toggleLeadtimeCustom();
     dlg.showModal();
   }
 
@@ -1044,6 +1097,8 @@
   document.getElementById('btn-procesar-excel').addEventListener('click', procesarExcel);
   document.getElementById('btn-aplicar-excel').addEventListener('click', aplicarExcelResultado);
   document.getElementById('f-producto-select').addEventListener('change', toggleProductoOtro);
+  document.getElementById('f-leadtime-normal').addEventListener('change', toggleLeadtimeCustom);
+  document.getElementById('f-leadtime-custom').addEventListener('change', toggleLeadtimeCustom);
 
   document.querySelectorAll('[data-close-dialog]').forEach(function(b){
     b.addEventListener('click', function(){ document.getElementById(b.getAttribute('data-close-dialog')).close(); });
@@ -1056,6 +1111,14 @@
     var selectedId = document.getElementById('f-producto-select').value;
     var pSel = selectedId ? STATE.productos.find(function(x){return x.id===selectedId;}) : null;
     var productoNombre = pSel ? pSel.nombre : document.getElementById('f-producto-otro').value.trim();
+    var usaLeadtimeCustom = document.getElementById('f-leadtime-custom').checked;
+    var leadTimeCustom = null;
+    if (usaLeadtimeCustom){
+      leadTimeCustom = {};
+      document.querySelectorAll('#f-leadtime-etapas input[data-etapa-id]').forEach(function(inp){
+        leadTimeCustom[inp.getAttribute('data-etapa-id')] = Math.max(0, Number(inp.value)||0);
+      });
+    }
     var data = {
       productoId: pSel ? pSel.id : null,
       producto: productoNombre,
@@ -1064,7 +1127,8 @@
       fechaOrden: document.getElementById('f-fechaorden').value,
       estadoIdx: Number(document.getElementById('f-etapa').value)||0,
       fechaInicioEstado: document.getElementById('f-fechaetapa').value,
-      nota: document.getElementById('f-nota').value.trim()
+      nota: document.getElementById('f-nota').value.trim(),
+      leadTimeCustom: leadTimeCustom
     };
     if (!data.producto || !data.proveedor || !data.fechaOrden || !data.fechaInicioEstado) return;
     if (id){
@@ -1153,17 +1217,20 @@
     return rows.slice(1).filter(function(r){ return r && r[0]; }).map(function(r){
       var historial = [];
       try{ historial = r[10] ? JSON.parse(r[10]) : []; }catch(e){ historial = []; }
+      var leadTimeCustom = null;
+      try{ leadTimeCustom = r[11] ? JSON.parse(r[11]) : null; }catch(e){ leadTimeCustom = null; }
       return {
         id: r[0], productoId: r[1]||null, producto: r[2]||'', proveedor: r[3]||'',
         cantidad: toNum(r[4]), fechaOrden: r[5]||'', estadoIdx: toNum(r[6]), fechaInicioEstado: r[7]||'',
-        nota: r[8]||'', completada: String(r[9]).toUpperCase()==='TRUE', historial: historial
+        nota: r[8]||'', completada: String(r[9]).toUpperCase()==='TRUE', historial: historial,
+        leadTimeCustom: leadTimeCustom
       };
     });
   }
   function comprasToRows(){
-    var header = ['id','productoId','producto','proveedor','cantidad','fechaOrden','estadoIdx','fechaInicioEstado','nota','completada','historial'];
+    var header = ['id','productoId','producto','proveedor','cantidad','fechaOrden','estadoIdx','fechaInicioEstado','nota','completada','historial','leadTimeCustom'];
     return [header].concat(STATE.compras.map(function(c){
-      return [c.id, c.productoId||'', c.producto, c.proveedor, c.cantidad, c.fechaOrden, c.estadoIdx, c.fechaInicioEstado, c.nota||'', c.completada?'TRUE':'FALSE', JSON.stringify(c.historial||[])];
+      return [c.id, c.productoId||'', c.producto, c.proveedor, c.cantidad, c.fechaOrden, c.estadoIdx, c.fechaInicioEstado, c.nota||'', c.completada?'TRUE':'FALSE', JSON.stringify(c.historial||[]), c.leadTimeCustom ? JSON.stringify(c.leadTimeCustom) : ''];
     }));
   }
 
@@ -1192,7 +1259,7 @@
   }
 
   function loadFromSheet(){
-    var ranges = ['productos!A:G','compras!A:K','estados!A:C','meta!A:B'];
+    var ranges = ['productos!A:G','compras!A:L','estados!A:C','meta!A:B'];
     var url = sheetsApiUrl('/values:batchGet?' + ranges.map(function(r){ return 'ranges='+encodeURIComponent(r); }).join('&'));
     return authFetch(url).then(function(res){
       if (!res.ok){
@@ -1227,7 +1294,7 @@
         });
       }
       STATE.meta.updated = new Date().toISOString();
-      var clearBody = { ranges: ['productos!A2:G100000','compras!A2:K100000','estados!A2:C1000','meta!A2:B1000'] };
+      var clearBody = { ranges: ['productos!A2:G100000','compras!A2:L100000','estados!A2:C1000','meta!A2:B1000'] };
       return authFetch(sheetsApiUrl('/values:batchClear'), { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(clearBody) });
     }).then(function(res){
       if (res && !res.ok) { var e = new Error('error clear'); e.status=res.status; throw e; }
